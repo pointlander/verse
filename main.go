@@ -7,8 +7,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
 	"math"
 	"math/rand"
+	"os"
 	"time"
 
 	"gonum.org/v1/plot"
@@ -112,6 +116,30 @@ func main() {
 	p.Add(scatter)
 
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "epochs.png")
+	if err != nil {
+		panic(err)
+	}
+
+	particles := set.Weights[2]
+	verse := image.NewRGBA(image.Rect(0, 0, 8, 8))
+	for i := 0; i < len(particles.X); i += Width {
+		maxX, maxY, max := 0, 0, float32(0.0)
+		for y := 0; y < 8; y++ {
+			offset := i + 8*y
+			for x := 0; x < 8; x++ {
+				if a := particles.X[offset+x]; a > max {
+					maxX, maxY, max = x, y, a
+				}
+			}
+		}
+		verse.Set(maxX, maxY, color.RGBA{255, 255, 255, 0})
+	}
+	out, err := os.Create("verse.gif")
+	if err != nil {
+		panic(err)
+	}
+	defer out.Close()
+	err = gif.Encode(out, verse, nil)
 	if err != nil {
 		panic(err)
 	}

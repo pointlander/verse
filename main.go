@@ -24,19 +24,21 @@ import (
 )
 
 const (
+	// Size is the size of the verse
+	Size = 8
 	// Width is the width of the neural network
-	Width = 8 * 8
+	Width = Size * Size
+	// Scale is the scale of the verse
+	Scale = 100
 )
 
-func main() {
+func simulate(n int) {
 	rand.Seed(1)
-
-	flag.Parse()
 
 	set := tf32.NewSet()
 	set.Add("aw1", Width, Width)
 	set.Add("ab1", Width)
-	set.Add("particles", Width, 8)
+	set.Add("particles", Width, n)
 
 	for i := range set.Weights {
 		w := set.Weights[i]
@@ -67,11 +69,10 @@ func main() {
 		color.RGBA{0xff, 0xff, 0xff, 0xff},
 		color.RGBA{0, 0, 0xff, 0xff},
 	}
-	total := float32(0.0)
 	for step := 0; step < 256; step++ {
 		i := 0
 		for i < iterations {
-			total = 0
+			total := float32(0.0)
 			start := time.Now()
 			set.Zero()
 
@@ -101,7 +102,7 @@ func main() {
 		}
 
 		particles := set.Weights[2]
-		verse := image.NewPaletted(image.Rect(0, 0, 800, 800), palette)
+		verse := image.NewPaletted(image.Rect(0, 0, Size*Scale, Size*Scale), palette)
 		for i := 0; i < len(particles.X); i += Width {
 			maxX, maxY, max := 0, 0, float32(0.0)
 			for y := 0; y < 8; y++ {
@@ -112,21 +113,21 @@ func main() {
 					}
 				}
 			}
-			maxX *= 100
-			maxY *= 100
-			for x := 0; x < 80; x++ {
-				for y := 0; y < 80; y++ {
-					var dx, dy float32 = 40 - float32(x), 40 - float32(y)
-					d := float32(math.Sqrt(float64(dx*dx+dy*dy))) / 40
+			maxX *= Scale
+			maxY *= Scale
+			for x := 0; x < Scale; x++ {
+				for y := 0; y < Scale; y++ {
+					var dx, dy float32 = Scale/2 - float32(x), Scale/2 - float32(y)
+					d := 2 * float32(math.Sqrt(float64(dx*dx+dy*dy))) / Scale
 					if d < 1 {
-						verse.Set(maxX+x, maxY+y, color.RGBA{255, 255, 255, 255})
+						verse.Set(maxX+x, maxY+y, color.RGBA{0xff, 0xff, 0xff, 0xff})
 					}
 				}
 			}
 
-			for x := 0; x < int(float64(step)*800.0/256.0); x++ {
-				for y := 790; y < 800; y++ {
-					verse.Set(x, y, color.RGBA{0, 0, 255, 255})
+			for x := 0; x < int(float64(step)*Size*Scale/256.0); x++ {
+				for y := Size*Scale - 10; y < Size*Scale; y++ {
+					verse.Set(x, y, color.RGBA{0, 0, 0xff, 0xff})
 				}
 			}
 		}
@@ -139,11 +140,6 @@ func main() {
 				w.X[j] += float32(rand.NormFloat64() * .001)
 			}
 		}
-	}
-
-	err := set.Save("weights.w", total, iterations)
-	if err != nil {
-		panic(err)
 	}
 
 	p, err := plot.New()
@@ -163,12 +159,12 @@ func main() {
 	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "epochs.png")
+	err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%d.png", n))
 	if err != nil {
 		panic(err)
 	}
 
-	out, err := os.Create("verse.gif")
+	out, err := os.Create(fmt.Sprintf("verse_%d.gif", n))
 	if err != nil {
 		panic(err)
 	}
@@ -177,4 +173,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func main() {
+	flag.Parse()
+
+	simulate(1)
+	simulate(2)
+	simulate(3)
+	simulate(8)
 }

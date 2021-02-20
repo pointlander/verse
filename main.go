@@ -32,7 +32,7 @@ const (
 	Scale = 100
 )
 
-func simulate(n int) {
+func simulate(name string, n int, factor float32) {
 	rand.Seed(1)
 
 	set := tf32.NewSet()
@@ -62,43 +62,46 @@ func simulate(n int) {
 	l1 := tf32.Softmax(tf32.Add(tf32.Mul(set.Get("aw1"), set.Get("particles")), set.Get("ab1")))
 	cost := tf32.Avg(tf32.Quadratic(set.Get("particles"), l1))
 
-	alpha, eta, iterations := float32(.3), float32(.3), 30
+	alpha, eta, iterations := float32(.3), float32(.3), 2048
 	points, images := make(plotter.XYs, 0, iterations), &gif.GIF{}
 	var palette = []color.Color{
 		color.RGBA{0, 0, 0, 0xff},
 		color.RGBA{0xff, 0xff, 0xff, 0xff},
 		color.RGBA{0, 0, 0xff, 0xff},
 	}
-	for step := 0; step < 256; step++ {
-		i := 0
-		for i < iterations {
-			total := float32(0.0)
-			start := time.Now()
-			set.Zero()
+	i := 0
+	for i < iterations {
+		total := float32(0.0)
+		start := time.Now()
+		set.Zero()
 
-			total += tf32.Gradient(cost).X[0]
-			norm := float32(0)
-			for _, p := range set.Weights {
-				for _, d := range p.D {
-					norm += d * d
-				}
+		total += tf32.Gradient(cost).X[0]
+		sum := float32(0)
+		for _, p := range set.Weights {
+			for _, d := range p.D {
+				sum += d * d
 			}
-			norm = float32(math.Sqrt(float64(norm)))
-			scaling := float32(1)
-			if norm > 1 {
-				scaling = 1 / norm
+		}
+		norm := float32(math.Sqrt(float64(sum)))
+		sum = 0
+		for _, p := range set.Weights {
+			for j, d := range p.D {
+				d += float32(rand.NormFloat64()) * norm * factor
+				sum += d * d
+				p.D[j] = d
 			}
+		}
+		norm = float32(math.Sqrt(float64(sum)))
+		scaling := float32(1)
+		if norm > 1 {
+			scaling = 1 / norm
+		}
 
-			for k, p := range set.Weights {
-				for l, d := range p.D {
-					deltas[k][l] = alpha*deltas[k][l] - eta*d*scaling
-					p.X[l] += deltas[k][l]
-				}
+		for k, p := range set.Weights {
+			for l, d := range p.D {
+				deltas[k][l] = alpha*deltas[k][l] - eta*d*scaling
+				p.X[l] += deltas[k][l]
 			}
-
-			points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
-			fmt.Println(i, total, time.Now().Sub(start))
-			i++
 		}
 
 		particles := set.Weights[2]
@@ -124,22 +127,19 @@ func simulate(n int) {
 					}
 				}
 			}
+		}
 
-			for x := 0; x < int(float64(step)*Size*Scale/256.0); x++ {
-				for y := Size*Scale - 10; y < Size*Scale; y++ {
-					verse.Set(x, y, color.RGBA{0, 0, 0xff, 0xff})
-				}
+		for x := 0; x < int(float64(i)*Size*Scale/float64(iterations)); x++ {
+			for y := Size*Scale - 10; y < Size*Scale; y++ {
+				verse.Set(x, y, color.RGBA{0, 0, 0xff, 0xff})
 			}
 		}
+
 		images.Image = append(images.Image, verse)
-		images.Delay = append(images.Delay, 100)
-
-		for i := range set.Weights {
-			w := set.Weights[i]
-			for j := range w.X {
-				w.X[j] += float32(rand.NormFloat64() * .001)
-			}
-		}
+		images.Delay = append(images.Delay, 10)
+		points = append(points, plotter.XY{X: float64(i), Y: float64(total)})
+		fmt.Println(i, total, time.Now().Sub(start))
+		i++
 	}
 
 	p, err := plot.New()
@@ -159,12 +159,12 @@ func simulate(n int) {
 	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
 	p.Add(scatter)
 
-	err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("epochs_%d.png", n))
+	err = p.Save(8*vg.Inch, 8*vg.Inch, fmt.Sprintf("%s_epochs_%d.png", name, n))
 	if err != nil {
 		panic(err)
 	}
 
-	out, err := os.Create(fmt.Sprintf("verse_%d.gif", n))
+	out, err := os.Create(fmt.Sprintf("%s_%d.gif", name, n))
 	if err != nil {
 		panic(err)
 	}
@@ -178,8 +178,9 @@ func simulate(n int) {
 func main() {
 	flag.Parse()
 
-	simulate(1)
-	simulate(2)
-	simulate(3)
-	simulate(8)
+	simulate("verse", 1, 1)
+	simulate("verse", 2, 1)
+	simulate("verse", 3, 1)
+	simulate("verse", 8, 1)
+	simulate("verse_blackhole", 8, .1)
 }

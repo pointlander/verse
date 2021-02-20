@@ -11,3 +11,6 @@
 
 ## 8 particle universe simulation
 ![simulation](verse_8.gif?raw=true)
+
+## 8 particle universe simulation with low quantum vacuum
+![simulation](verse_blackhole_8.gif?raw=true)

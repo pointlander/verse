@@ -11,6 +11,7 @@ import (
 	"image/color"
 	"image/gif"
 	"math"
+	"math/cmplx"
 	"math/rand"
 	"os"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"gonum.org/v1/plot/vg"
 	"gonum.org/v1/plot/vg/draw"
 
+	"github.com/pointlander/gradient/tc128"
 	"github.com/pointlander/gradient/tf32"
 )
 
@@ -31,6 +33,103 @@ const (
 	// Scale is the scale of the verse
 	Scale = 100
 )
+
+var (
+	// VerseMode
+	verseMode = flag.Bool("verse", false, "verse mode")
+)
+
+func verse(factor float64) {
+	rand.Seed(1)
+
+	set := tc128.NewSet()
+	set.Add("aw1", Width, Width)
+	set.Add("ab1", Width)
+	set.Add("states", Width)
+
+	random128 := func(a, b float64) complex128 {
+		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
+	}
+
+	for i := range set.Weights {
+		w := set.Weights[i]
+		if w.S[1] == 1 {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		} else {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		}
+	}
+
+	l1 := tc128.Softmax(tc128.Add(tc128.Mul(set.Get("aw1"), set.Get("states")), set.Get("ab1")))
+	cost := tc128.Quadratic(set.Get("states"), l1)
+
+	eta, iterations := complex128(.3), 128
+	points := make(plotter.XYs, 0, iterations)
+	i := 0
+	for i < iterations {
+		total := complex128(0)
+		start := time.Now()
+		set.Zero()
+
+		total += tc128.Gradient(cost).X[0]
+		sum := 0.0
+		for _, p := range set.Weights {
+			for _, d := range p.D {
+				sum += cmplx.Abs(d) * cmplx.Abs(d)
+			}
+		}
+		norm := float64(math.Sqrt(float64(sum)))
+		sum = 0
+		for _, p := range set.Weights {
+			for j, d := range p.D {
+				//d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
+				sum += cmplx.Abs(d) * cmplx.Abs(d)
+				p.D[j] = d
+			}
+		}
+		norm = float64(math.Sqrt(float64(sum)))
+		scaling := float64(1)
+		if norm > 1 {
+			scaling = 1 / norm
+		}
+
+		for _, p := range set.Weights {
+			for l, d := range p.D {
+				p.X[l] -= eta * d * complex(scaling, 0)
+			}
+		}
+
+		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
+		fmt.Println(i, cmplx.Abs(total), time.Now().Sub(start))
+		i++
+	}
+
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	p.Title.Text = "epochs vs cost"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "cost"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "verse.png")
+	if err != nil {
+		panic(err)
+	}
+}
 
 func simulate(name string, n int, factor float32) {
 	rand.Seed(1)
@@ -178,9 +277,13 @@ func simulate(name string, n int, factor float32) {
 func main() {
 	flag.Parse()
 
-	simulate("verse", 1, 1)
-	simulate("verse", 2, 1)
-	simulate("verse", 3, 1)
-	simulate("verse", 8, 1)
-	simulate("verse_blackhole", 8, .1)
+	if *verseMode {
+		verse(1)
+	} else {
+		simulate("verse", 1, 1)
+		simulate("verse", 2, 1)
+		simulate("verse", 3, 1)
+		simulate("verse", 8, 1)
+		simulate("verse_blackhole", 8, .1)
+	}
 }

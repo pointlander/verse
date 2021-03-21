@@ -67,7 +67,7 @@ func verse(factor float64) {
 	l1 := tc128.Softmax(tc128.Add(tc128.Mul(set.Get("aw1"), set.Get("states")), set.Get("ab1")))
 	cost := tc128.Quadratic(set.Get("states"), l1)
 
-	eta, iterations := complex128(.3), 128
+	eta, iterations := complex128(.3), 256
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -86,7 +86,7 @@ func verse(factor float64) {
 		sum = 0
 		for _, p := range set.Weights {
 			for j, d := range p.D {
-				//d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
+				d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
 				sum += cmplx.Abs(d) * cmplx.Abs(d)
 				p.D[j] = d
 			}
@@ -103,8 +103,15 @@ func verse(factor float64) {
 			}
 		}
 
+		state, max := 0, 0.0
+		for i, j := range set.Weights[2].X {
+			if mag := cmplx.Abs(j); mag > max {
+				state, max = i, mag
+			}
+		}
+
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
-		fmt.Println(i, cmplx.Abs(total), time.Now().Sub(start))
+		fmt.Println(i, cmplx.Abs(total), time.Now().Sub(start), state, max)
 		i++
 	}
 
@@ -278,7 +285,7 @@ func main() {
 	flag.Parse()
 
 	if *verseMode {
-		verse(1)
+		verse(.1)
 	} else {
 		simulate("verse", 1, 1)
 		simulate("verse", 2, 1)

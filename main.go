@@ -85,15 +85,6 @@ func verse(factor float64) {
 			}
 		}
 		norm := float64(math.Sqrt(float64(sum)))
-		sum = 0
-		for _, p := range set.Weights {
-			for j, d := range p.D {
-				//d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
-				sum += cmplx.Abs(d) * cmplx.Abs(d)
-				p.D[j] = d
-			}
-		}
-		norm = float64(math.Sqrt(float64(sum)))
 		scaling := float64(1)
 		if norm > 1 {
 			scaling = 1 / norm
@@ -105,14 +96,15 @@ func verse(factor float64) {
 			}
 		}
 
+		x := set.Weights[0].X
+		x[rand.Intn(len(x))] = complex(norm, 0)
+
 		state, max := uint64(0), 0.0
 		for i, j := range set.Weights[2].X {
 			if mag := cmplx.Abs(j); mag > max {
 				state, max = uint64(i), mag
 			}
 		}
-		set.Weights[2].X[(^state)&0xFF], set.Weights[2].X[state] =
-			set.Weights[2].X[state], 0
 
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total), time.Now().Sub(start), state, max)

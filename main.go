@@ -32,6 +32,8 @@ const (
 	Width = Size * Size
 	// Scale is the scale of the verse
 	Scale = 100
+	// QuantumWidth is the width of the quantum verse
+	QuantumWidth = 256
 )
 
 var (
@@ -43,9 +45,9 @@ func verse(factor float64) {
 	rand.Seed(1)
 
 	set := tc128.NewSet()
-	set.Add("aw1", Width, Width)
-	set.Add("ab1", Width)
-	set.Add("states", Width)
+	set.Add("aw1", QuantumWidth, QuantumWidth)
+	set.Add("ab1", QuantumWidth)
+	set.Add("states", QuantumWidth)
 
 	random128 := func(a, b float64) complex128 {
 		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
@@ -67,7 +69,7 @@ func verse(factor float64) {
 	l1 := tc128.Softmax(tc128.Add(tc128.Mul(set.Get("aw1"), set.Get("states")), set.Get("ab1")))
 	cost := tc128.Quadratic(set.Get("states"), l1)
 
-	eta, iterations := complex128(.3), 256
+	eta, iterations := complex128(.3), 512
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -86,7 +88,7 @@ func verse(factor float64) {
 		sum = 0
 		for _, p := range set.Weights {
 			for j, d := range p.D {
-				d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
+				//d += complex(rand.NormFloat64()*norm*factor, rand.NormFloat64()*norm*factor)
 				sum += cmplx.Abs(d) * cmplx.Abs(d)
 				p.D[j] = d
 			}
@@ -103,12 +105,14 @@ func verse(factor float64) {
 			}
 		}
 
-		state, max := 0, 0.0
+		state, max := uint64(0), 0.0
 		for i, j := range set.Weights[2].X {
 			if mag := cmplx.Abs(j); mag > max {
-				state, max = i, mag
+				state, max = uint64(i), mag
 			}
 		}
+		set.Weights[2].X[(^state)&0xFF], set.Weights[2].X[state] =
+			set.Weights[2].X[state], 0
 
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total), time.Now().Sub(start), state, max)

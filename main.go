@@ -39,7 +39,87 @@ const (
 var (
 	// VerseMode
 	verseMode = flag.Bool("verse", false, "verse mode")
+	// MultiVerseMode
+	multiVerseMode = flag.Bool("multi", false, "multi verse mode")
 )
+
+func multiVerse(factor float64, width int, last *tc128.Set) (s *tc128.Set, state uint64) {
+	rand.Seed(1)
+
+	set := tc128.NewSet()
+	set.Add("aw1", width+1, width+1)
+	set.Add("ab1", width+1)
+	set.Add("states", width+1)
+
+	random128 := func(a, b float64) complex128 {
+		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
+	}
+
+	for i := range set.Weights {
+		w := set.Weights[i]
+		if w.S[1] == 1 {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		} else {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		}
+	}
+
+	if last != nil {
+		for i := 0; i < width; i++ {
+			for j := 0; j < width; j++ {
+				set.Weights[0].X[j*(width+1)+i] = last.Weights[0].X[j*width+i]
+			}
+			set.Weights[1].X[i] = last.Weights[1].X[i]
+			set.Weights[2].X[i] = last.Weights[2].X[i]
+		}
+	}
+
+	l1 := tc128.Softmax(tc128.Add(tc128.Mul(set.Get("aw1"), set.Get("states")), set.Get("ab1")))
+	cost := tc128.Quadratic(set.Get("states"), l1)
+
+	eta, iterations := complex128(.3), 512
+	i := 0
+	for i < iterations {
+		set.Zero()
+
+		tc128.Gradient(cost)
+		sum := 0.0
+		for _, p := range set.Weights {
+			for _, d := range p.D {
+				sum += cmplx.Abs(d) * cmplx.Abs(d)
+			}
+		}
+		norm := float64(math.Sqrt(float64(sum)))
+		scaling := float64(1)
+		if norm > 1 {
+			scaling = 1 / norm
+		}
+
+		for _, p := range set.Weights {
+			for l, d := range p.D {
+				p.X[l] -= eta * d * complex(scaling, 0)
+			}
+		}
+
+		x := set.Weights[0].X
+		x[rand.Intn(len(x))] = complex(norm, 0)
+
+		max := 0.0
+		for i, j := range set.Weights[2].X {
+			if mag := cmplx.Abs(j); mag > max {
+				state, max = uint64(i), mag
+			}
+		}
+
+		i++
+	}
+
+	return &set, state
+}
 
 func verse(factor float64) {
 	rand.Seed(1)
@@ -280,7 +360,14 @@ func simulate(name string, n int, factor float32) {
 func main() {
 	flag.Parse()
 
-	if *verseMode {
+	if *multiVerseMode {
+		set, state := multiVerse(1, 2, nil)
+		fmt.Println(2, state)
+		for i := 3; i < 128; i++ {
+			set, state = multiVerse(1, i, set)
+			fmt.Println(i, state)
+		}
+	} else if *verseMode {
 		verse(.1)
 	} else {
 		simulate("verse", 1, 1)

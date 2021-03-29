@@ -43,8 +43,8 @@ var (
 	multiVerseMode = flag.Bool("multi", false, "multi verse mode")
 )
 
-func multiVerse(factor float64, width int, last *tc128.Set) (s *tc128.Set, state uint64) {
-	rand.Seed(1)
+func multiVerse(seed int64, factor float64, width int, last *tc128.Set) (s *tc128.Set, state uint64) {
+	rand.Seed(seed)
 
 	set := tc128.NewSet()
 	set.Add("aw1", width+1, width+1)
@@ -361,10 +361,10 @@ func main() {
 	flag.Parse()
 
 	if *multiVerseMode {
-		set, state := multiVerse(1, 2, nil)
+		set, state := multiVerse(1, .1, 2, nil)
 		fmt.Println(2, state)
-		for i := 3; i < 128; i++ {
-			set, state = multiVerse(1, i, set)
+		for i := 2; i < 128; i++ {
+			set, state = multiVerse(int64(i), .1, i, set)
 			fmt.Println(i, state)
 		}
 	} else if *verseMode {

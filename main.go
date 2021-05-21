@@ -27,11 +27,11 @@ import (
 
 const (
 	// Size is the size of the verse
-	Size = 8
+	Size = 32
 	// Width is the width of the neural network
 	Width = Size * Size
 	// Scale is the scale of the verse
-	Scale = 100
+	Scale = 25
 	// QuantumWidth is the width of the quantum verse
 	QuantumWidth = 256
 )
@@ -290,9 +290,9 @@ func simulate(name string, n int, factor float32) {
 		verse := image.NewPaletted(image.Rect(0, 0, Size*Scale, Size*Scale), palette)
 		for i := 0; i < len(particles.X); i += Width {
 			maxX, maxY, max := 0, 0, float32(0.0)
-			for y := 0; y < 8; y++ {
-				offset := i + 8*y
-				for x := 0; x < 8; x++ {
+			for y := 0; y < Size; y++ {
+				offset := i + Size*y
+				for x := 0; x < Size; x++ {
 					if a := particles.X[offset+x]; a > max {
 						maxX, maxY, max = x, y, a
 					}

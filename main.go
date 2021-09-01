@@ -39,6 +39,8 @@ const (
 var (
 	// VerseMode
 	verseMode = flag.Bool("verse", false, "verse mode")
+	// ContraMode
+	contraMode = flag.Bool("contra", false, "contra mode")
 	// MultiVerseMode
 	multiVerseMode = flag.Bool("multi", false, "multi verse mode")
 )
@@ -214,6 +216,87 @@ func verse(factor float64) {
 	}
 }
 
+func contraVerse(factor float64) {
+	rand.Seed(1)
+
+	set := tc128.NewSet()
+	set.Add("a", QuantumWidth, QuantumWidth)
+	set.Add("b", QuantumWidth, QuantumWidth)
+
+	random128 := func(a, b float64) complex128 {
+		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
+	}
+
+	for i := range set.Weights {
+		w := set.Weights[i]
+		if w.S[1] == 1 {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		} else {
+			for i := 0; i < cap(w.X); i++ {
+				w.X = append(w.X, random128(-1, 1))
+			}
+		}
+	}
+
+	l1 := tc128.Mul(set.Get("a"), set.Get("b"))
+	cost := tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1)
+
+	eta, iterations := complex128(.3), 8*1024
+	points := make(plotter.XYs, 0, iterations)
+	i := 0
+	for i < iterations {
+		total := complex128(0)
+		set.Zero()
+
+		total += tc128.Gradient(cost).X[0]
+		sum := 0.0
+		for _, p := range set.Weights {
+			for _, d := range p.D {
+				sum += cmplx.Abs(d) * cmplx.Abs(d)
+			}
+		}
+		norm := float64(math.Sqrt(float64(sum)))
+		scaling := float64(1)
+		if norm > 1 {
+			scaling = 1 / norm
+		}
+
+		for _, p := range set.Weights {
+			for l, d := range p.D {
+				p.X[l] -= eta * d * complex(scaling, 0)
+			}
+		}
+
+		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
+		fmt.Println(i, cmplx.Abs(total))
+		i++
+	}
+
+	p, err := plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	p.Title.Text = "epochs vs cost"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "cost"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "contraverse.png")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func simulate(name string, n int, factor float32) {
 	rand.Seed(1)
 
@@ -369,6 +452,8 @@ func main() {
 		}
 	} else if *verseMode {
 		verse(.1)
+	} else if *contraMode {
+		contraVerse(.1)
 	} else {
 		simulate("verse", 1, 1)
 		simulate("verse", 2, 1)

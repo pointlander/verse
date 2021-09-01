@@ -274,6 +274,13 @@ func contraVerse(factor float64) {
 		i++
 	}
 
+	for i := 0; i < QuantumWidth; i++ {
+		for j := 0; j < QuantumWidth; j++ {
+			fmt.Printf("%v ", set.Weights[0].X[i*QuantumWidth+j])
+		}
+		fmt.Printf("\n")
+	}
+
 	p, err := plot.New()
 	if err != nil {
 		panic(err)

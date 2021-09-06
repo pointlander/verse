@@ -244,6 +244,7 @@ func contraVerse(factor float64) {
 	cost := tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1)
 
 	eta, iterations := complex128(.3), 8*1024
+	a0 := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -269,6 +270,7 @@ func contraVerse(factor float64) {
 			}
 		}
 
+		a0 = append(a0, plotter.XY{X: float64(i), Y: cmplx.Abs(set.Weights[0].X[0])})
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total))
 		i++
@@ -299,6 +301,28 @@ func contraVerse(factor float64) {
 	p.Add(scatter)
 
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "contraverse.png")
+	if err != nil {
+		panic(err)
+	}
+
+	p, err = plot.New()
+	if err != nil {
+		panic(err)
+	}
+
+	p.Title.Text = "epochs vs value for a0"
+	p.X.Label.Text = "value"
+	p.Y.Label.Text = "cost"
+
+	scatter, err = plotter.NewScatter(a0)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "a0.png")
 	if err != nil {
 		panic(err)
 	}

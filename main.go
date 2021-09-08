@@ -23,6 +23,7 @@ import (
 
 	"github.com/pointlander/gradient/tc128"
 	"github.com/pointlander/gradient/tf32"
+	"gonum.org/v1/gonum/mat"
 )
 
 const (
@@ -193,10 +194,7 @@ func verse(factor float64) {
 		i++
 	}
 
-	p, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
+	p := plot.New()
 
 	p.Title.Text = "epochs vs cost"
 	p.X.Label.Text = "epochs"
@@ -245,6 +243,7 @@ func contraVerse(factor float64) {
 
 	eta, iterations := complex128(.3), 8*1024
 	a0 := make(plotter.XYs, 0, iterations)
+	det := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -270,7 +269,18 @@ func contraVerse(factor float64) {
 			}
 		}
 
+		aa := make([]float64, len(set.Weights[0].X))
+		for key, value := range set.Weights[0].X {
+			aa[key] = cmplx.Abs(value)
+		}
+		a := mat.NewDense(QuantumWidth, QuantumWidth, aa)
+		d := mat.Det(a)
+		if d < 0 {
+			d = -d
+		}
+
 		a0 = append(a0, plotter.XY{X: float64(i), Y: cmplx.Abs(set.Weights[0].X[0])})
+		det = append(det, plotter.XY{X: float64(i), Y: d})
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total))
 		i++
@@ -283,10 +293,7 @@ func contraVerse(factor float64) {
 		fmt.Printf("\n")
 	}
 
-	p, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
+	p := plot.New()
 
 	p.Title.Text = "epochs vs cost"
 	p.X.Label.Text = "epochs"
@@ -305,14 +312,11 @@ func contraVerse(factor float64) {
 		panic(err)
 	}
 
-	p, err = plot.New()
-	if err != nil {
-		panic(err)
-	}
+	p = plot.New()
 
 	p.Title.Text = "epochs vs value for a0"
-	p.X.Label.Text = "value"
-	p.Y.Label.Text = "cost"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "value"
 
 	scatter, err = plotter.NewScatter(a0)
 	if err != nil {
@@ -323,6 +327,25 @@ func contraVerse(factor float64) {
 	p.Add(scatter)
 
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "a0.png")
+	if err != nil {
+		panic(err)
+	}
+
+	p = plot.New()
+
+	p.Title.Text = "epochs vs det"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "det"
+
+	scatter, err = plotter.NewScatter(det)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "det.png")
 	if err != nil {
 		panic(err)
 	}
@@ -438,10 +461,7 @@ func simulate(name string, n int, factor float32) {
 		i++
 	}
 
-	p, err := plot.New()
-	if err != nil {
-		panic(err)
-	}
+	p := plot.New()
 
 	p.Title.Text = "epochs vs cost"
 	p.X.Label.Text = "epochs"

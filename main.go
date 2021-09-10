@@ -225,6 +225,10 @@ func contraVerse(factor float64) {
 		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
 	}
 
+	/*random128 := func(a, b float64) complex128 {
+		return complex(rand.NormFloat64(), rand.NormFloat64())
+	}*/
+
 	for i := range set.Weights {
 		w := set.Weights[i]
 		if w.S[1] == 1 {
@@ -242,8 +246,8 @@ func contraVerse(factor float64) {
 	cost := tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1)
 
 	eta, iterations := complex128(.3), 8*1024
-	a0 := make(plotter.XYs, 0, iterations)
-	det := make(plotter.XYs, 0, iterations)
+	deta := make(plotter.XYs, 0, iterations)
+	detb := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -273,24 +277,25 @@ func contraVerse(factor float64) {
 		for key, value := range set.Weights[0].X {
 			aa[key] = cmplx.Abs(value)
 		}
-		a := mat.NewDense(QuantumWidth, QuantumWidth, aa)
-		d := mat.Det(a)
-		if d < 0 {
-			d = -d
+		da := mat.Det(mat.NewDense(QuantumWidth, QuantumWidth, aa))
+		if da < 0 {
+			da = -da
 		}
+		deta = append(deta, plotter.XY{X: float64(i), Y: da})
 
-		a0 = append(a0, plotter.XY{X: float64(i), Y: cmplx.Abs(set.Weights[0].X[0])})
-		det = append(det, plotter.XY{X: float64(i), Y: d})
+		bb := make([]float64, len(set.Weights[1].X))
+		for key, value := range set.Weights[1].X {
+			bb[key] = cmplx.Abs(value)
+		}
+		db := mat.Det(mat.NewDense(QuantumWidth, QuantumWidth, bb))
+		if db < 0 {
+			db = -db
+		}
+		detb = append(detb, plotter.XY{X: float64(i), Y: db})
+
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total))
 		i++
-	}
-
-	for i := 0; i < QuantumWidth; i++ {
-		for j := 0; j < QuantumWidth; j++ {
-			fmt.Printf("%v ", set.Weights[0].X[i*QuantumWidth+j])
-		}
-		fmt.Printf("\n")
 	}
 
 	p := plot.New()
@@ -314,35 +319,26 @@ func contraVerse(factor float64) {
 
 	p = plot.New()
 
-	p.Title.Text = "epochs vs value for a0"
-	p.X.Label.Text = "epochs"
-	p.Y.Label.Text = "value"
-
-	scatter, err = plotter.NewScatter(a0)
-	if err != nil {
-		panic(err)
-	}
-	scatter.GlyphStyle.Radius = vg.Length(1)
-	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
-	p.Add(scatter)
-
-	err = p.Save(8*vg.Inch, 8*vg.Inch, "a0.png")
-	if err != nil {
-		panic(err)
-	}
-
-	p = plot.New()
-
 	p.Title.Text = "epochs vs det"
 	p.X.Label.Text = "epochs"
 	p.Y.Label.Text = "det"
 
-	scatter, err = plotter.NewScatter(det)
+	scatter, err = plotter.NewScatter(deta)
 	if err != nil {
 		panic(err)
 	}
 	scatter.GlyphStyle.Radius = vg.Length(1)
 	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	scatter.GlyphStyle.Color = color.RGBA{0xFF, 0, 0, 255}
+	p.Add(scatter)
+
+	scatter, err = plotter.NewScatter(detb)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	scatter.GlyphStyle.Color = color.RGBA{0, 0, 0xFF, 255}
 	p.Add(scatter)
 
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "det.png")
@@ -363,6 +359,23 @@ func contraVerse(factor float64) {
 	}
 	p.Add(histogram)
 	err = p.Save(8*vg.Inch, 8*vg.Inch, "histogram_a.png")
+	if err != nil {
+		panic(err)
+	}
+
+	bb := make(plotter.Values, 0, 1024)
+	for _, value := range set.Weights[1].X {
+		bb = append(bb, cmplx.Abs(value))
+	}
+
+	p = plot.New()
+	p.Title.Text = "b matrix"
+	histogram, err = plotter.NewHist(bb, 256)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "histogram_b.png")
 	if err != nil {
 		panic(err)
 	}

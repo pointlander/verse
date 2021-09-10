@@ -349,6 +349,23 @@ func contraVerse(factor float64) {
 	if err != nil {
 		panic(err)
 	}
+
+	aa := make(plotter.Values, 0, 1024)
+	for _, value := range set.Weights[0].X {
+		aa = append(aa, cmplx.Abs(value))
+	}
+
+	p = plot.New()
+	p.Title.Text = "a matrix"
+	histogram, err := plotter.NewHist(aa, 256)
+	if err != nil {
+		panic(err)
+	}
+	p.Add(histogram)
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "histogram_a.png")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func simulate(name string, n int, factor float32) {

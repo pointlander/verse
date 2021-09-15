@@ -243,9 +243,9 @@ func contraVerse(factor float64) {
 	}
 
 	l1 := tc128.Mul(set.Get("a"), set.Get("b"))
-	cost := tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1)
+	cost := tc128.Avg(tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1))
 
-	eta, iterations := complex128(.3), 8*1024
+	eta, iterations := complex128(.3), 15*1024
 	deta := make(plotter.XYs, 0, iterations)
 	detb := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)

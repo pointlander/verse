@@ -34,7 +34,7 @@ const (
 	// Scale is the scale of the verse
 	Scale = 25
 	// QuantumWidth is the width of the quantum verse
-	QuantumWidth = 256
+	QuantumWidth = 128
 )
 
 var (
@@ -221,6 +221,9 @@ func contraVerse(factor float64) {
 	set.Add("a", QuantumWidth, QuantumWidth)
 	set.Add("b", QuantumWidth, QuantumWidth)
 
+	constants := tc128.NewSet()
+	constants.Add("weights", QuantumWidth)
+
 	random128 := func(a, b float64) complex128 {
 		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
 	}
@@ -242,10 +245,20 @@ func contraVerse(factor float64) {
 		}
 	}
 
-	l1 := tc128.Mul(set.Get("a"), set.Get("b"))
-	cost := tc128.Avg(tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1))
+	fib1, fib2 := 1, 1
+	constants.Weights[0].X = append(constants.Weights[0].X, complex(float64(fib1), 0))
+	for i := 0; i < QuantumWidth-1; i++ {
+		constants.Weights[0].X = append(constants.Weights[0].X, complex(float64(fib2), 0))
+		fib1, fib2 = fib2, fib1+fib2
+	}
 
-	eta, iterations := complex128(.3), 15*1024
+	l1 := tc128.Mul(set.Get("a"), set.Get("b"))
+	cost := tc128.Mul(
+		tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1),
+		constants.Get("weights"),
+	)
+
+	eta, iterations := complex128(.3), 20*1024
 	deta := make(plotter.XYs, 0, iterations)
 	detb := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)

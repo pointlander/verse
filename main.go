@@ -221,9 +221,6 @@ func contraVerse(factor float64) {
 	set.Add("a", QuantumWidth, QuantumWidth)
 	set.Add("b", QuantumWidth, QuantumWidth)
 
-	constants := tc128.NewSet()
-	constants.Add("weights", QuantumWidth)
-
 	random128 := func(a, b float64) complex128 {
 		return complex((b-a)*rand.Float64()+a, (b-a)*rand.Float64()+a)
 	}
@@ -245,20 +242,13 @@ func contraVerse(factor float64) {
 		}
 	}
 
-	fib1, fib2 := 1, 1
-	constants.Weights[0].X = append(constants.Weights[0].X, complex(float64(fib1), 0))
-	for i := 0; i < QuantumWidth-1; i++ {
-		constants.Weights[0].X = append(constants.Weights[0].X, complex(float64(fib2), 0))
-		fib1, fib2 = fib2, fib1+fib2
-	}
-
 	l1 := tc128.Mul(set.Get("a"), set.Get("b"))
-	cost := tc128.Mul(
-		tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1),
-		constants.Get("weights"),
+	cost := tc128.Add(
+		tc128.Avg(tc128.Quadratic(tc128.Mul(set.Get("b"), tc128.T(set.Get("a"))), l1)),
+		tc128.Avg(tc128.Hadamard(set.Get("a"), set.Get("b"))),
 	)
 
-	eta, iterations := complex128(.3), 20*1024
+	eta, iterations := complex128(.3), 256*1024
 	deta := make(plotter.XYs, 0, iterations)
 	detb := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
@@ -294,7 +284,7 @@ func contraVerse(factor float64) {
 		if da < 0 {
 			da = -da
 		}
-		deta = append(deta, plotter.XY{X: float64(i), Y: da})
+		deta = append(deta, plotter.XY{X: float64(i), Y: math.Log10(da)})
 
 		bb := make([]float64, len(set.Weights[1].X))
 		for key, value := range set.Weights[1].X {
@@ -304,7 +294,7 @@ func contraVerse(factor float64) {
 		if db < 0 {
 			db = -db
 		}
-		detb = append(detb, plotter.XY{X: float64(i), Y: db})
+		detb = append(detb, plotter.XY{X: float64(i), Y: math.Log10(db)})
 
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total))

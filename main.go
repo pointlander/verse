@@ -23,7 +23,7 @@ import (
 
 	"github.com/pointlander/gradient/tc128"
 	"github.com/pointlander/gradient/tf32"
-	"gonum.org/v1/gonum/mat"
+	//"gonum.org/v1/gonum/mat"
 )
 
 const (
@@ -34,7 +34,7 @@ const (
 	// Scale is the scale of the verse
 	Scale = 25
 	// QuantumWidth is the width of the quantum verse
-	QuantumWidth = 128
+	QuantumWidth = 8
 )
 
 var (
@@ -214,6 +214,38 @@ func verse(factor float64) {
 	}
 }
 
+// https://www.geeksforgeeks.org/determinant-of-a-matrix/
+func cofactor(mat, temp []complex128, p, q, n int) {
+	i, j := 0, 0
+	for row := 0; row < n; row++ {
+		for col := 0; col < n; col++ {
+			if row != p && col != q {
+				temp[i*QuantumWidth+j] = mat[row*QuantumWidth+col]
+				j++
+				if j == n-1 {
+					j = 0
+					i++
+				}
+			}
+		}
+	}
+}
+
+func determinant(mat []complex128, n int) complex128 {
+	if n == 1 {
+		return mat[0]
+	}
+	var d complex128
+	temp := make([]complex128, QuantumWidth*QuantumWidth)
+	sign := complex128(1)
+	for f := 0; f < n; f++ {
+		cofactor(mat, temp, 0, f, n)
+		d += sign * mat[f] * determinant(temp, n-1)
+		sign = -sign
+	}
+	return d
+}
+
 func contraVerse(factor float64) {
 	rand.Seed(1)
 
@@ -248,7 +280,7 @@ func contraVerse(factor float64) {
 		tc128.Avg(tc128.Hadamard(set.Get("a"), set.Get("b"))),
 	)
 
-	eta, iterations := complex128(.3), 256*1024
+	eta, iterations := complex128(.3), 1024
 	deta := make(plotter.XYs, 0, iterations)
 	detb := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
@@ -276,28 +308,50 @@ func contraVerse(factor float64) {
 			}
 		}
 
-		aa := make([]float64, len(set.Weights[0].X))
+		/*aa := make([]float64, len(set.Weights[0].X))
 		for key, value := range set.Weights[0].X {
 			aa[key] = cmplx.Abs(value)
 		}
 		da := mat.Det(mat.NewDense(QuantumWidth, QuantumWidth, aa))
 		if da < 0 {
 			da = -da
+		}*/
+		da := determinant(set.Weights[0].X, QuantumWidth)
+		if cmplx.IsInf(da) {
+			break
 		}
-		deta = append(deta, plotter.XY{X: float64(i), Y: math.Log10(da)})
+		a := cmplx.Abs(da)
+		if a < 0 {
+			a = -a
+		}
+		if math.IsInf(a, 0) {
+			break
+		}
+		deta = append(deta, plotter.XY{X: float64(i), Y: math.Log10(a)})
 
-		bb := make([]float64, len(set.Weights[1].X))
+		/*bb := make([]float64, len(set.Weights[1].X))
 		for key, value := range set.Weights[1].X {
 			bb[key] = cmplx.Abs(value)
 		}
 		db := mat.Det(mat.NewDense(QuantumWidth, QuantumWidth, bb))
 		if db < 0 {
 			db = -db
+		}*/
+		db := determinant(set.Weights[1].X, QuantumWidth)
+		if cmplx.IsInf(db) {
+			break
 		}
-		detb = append(detb, plotter.XY{X: float64(i), Y: math.Log10(db)})
+		b := cmplx.Abs(db)
+		if b < 0 {
+			b = -b
+		}
+		if math.IsInf(b, 0) {
+			break
+		}
+		detb = append(detb, plotter.XY{X: float64(i), Y: math.Log10(b)})
 
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
-		fmt.Println(i, cmplx.Abs(total))
+		fmt.Println(i, cmplx.Abs(total), a, b)
 		i++
 	}
 

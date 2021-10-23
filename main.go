@@ -23,7 +23,7 @@ import (
 
 	"github.com/pointlander/gradient/tc128"
 	"github.com/pointlander/gradient/tf32"
-	//"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/mat"
 )
 
 const (
@@ -38,12 +38,14 @@ const (
 )
 
 var (
-	// VerseMode
-	verseMode = flag.Bool("verse", false, "verse mode")
-	// ContraMode
-	contraMode = flag.Bool("contra", false, "contra mode")
-	// MultiVerseMode
-	multiVerseMode = flag.Bool("multi", false, "multi verse mode")
+	// VerseMode normal verse mode
+	VerseMode = flag.Bool("verse", false, "verse mode")
+	// ContraMode models a contradiction based verse
+	ContraMode = flag.Bool("contra", false, "contra mode")
+	// MultiVerseMode models a multi verse
+	MultiVerseMode = flag.Bool("multi", false, "multi verse mode")
+	// ConnectionVerseMode models connection
+	ConnectionVerseMode = flag.Bool("connect", false, "connection verse mode")
 )
 
 func multiVerse(seed int64, factor float64, width int, last *tc128.Set) (s *tc128.Set, state uint64) {
@@ -578,19 +580,53 @@ func simulate(name string, n int, factor float32) {
 	}
 }
 
+func connectionVerse() {
+	rand.Seed(1)
+	verse, points := make([]float64, Size*Size), make(plotter.XYs, 0, 2*1024)
+	for i := 0; i < 2*1024; i++ {
+		verse[rand.Intn(Size*Size)] = 1
+		det := mat.Det(mat.NewDense(Size, Size, verse))
+		if det < 0 {
+			det = -det
+		}
+		points = append(points, plotter.XY{X: float64(i), Y: float64(det)})
+	}
+
+	p := plot.New()
+
+	p.Title.Text = "time vs size"
+	p.X.Label.Text = "time"
+	p.Y.Label.Text = "size"
+
+	scatter, err := plotter.NewScatter(points)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "connection.png")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	flag.Parse()
 
-	if *multiVerseMode {
+	if *ConnectionVerseMode {
+		connectionVerse()
+	} else if *MultiVerseMode {
 		set, state := multiVerse(1, .1, 2, nil)
 		fmt.Println(2, state)
 		for i := 2; i < 128; i++ {
 			set, state = multiVerse(int64(i), .1, i, set)
 			fmt.Println(i, state)
 		}
-	} else if *verseMode {
+	} else if *VerseMode {
 		verse(.1)
-	} else if *contraMode {
+	} else if *ContraMode {
 		contraVerse(.1)
 	} else {
 		simulate("verse", 1, 1)

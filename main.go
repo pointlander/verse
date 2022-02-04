@@ -248,6 +248,19 @@ func determinant(mat []complex128, n int) complex128 {
 	return d
 }
 
+func permanent(mat []complex128, n int) complex128 {
+	if n == 1 {
+		return mat[0]
+	}
+	var d complex128
+	temp := make([]complex128, QuantumWidth*QuantumWidth)
+	for f := 0; f < n; f++ {
+		cofactor(mat, temp, 0, f, n)
+		d += mat[f] * permanent(temp, n-1)
+	}
+	return d
+}
+
 func contraVerse(factor float64) {
 	rand.Seed(1)
 
@@ -285,6 +298,8 @@ func contraVerse(factor float64) {
 	eta, iterations := complex128(.3), 1024
 	deta := make(plotter.XYs, 0, iterations)
 	detb := make(plotter.XYs, 0, iterations)
+	permanentA := make(plotter.XYs, 0, iterations)
+	permanentB := make(plotter.XYs, 0, iterations)
 	points := make(plotter.XYs, 0, iterations)
 	i := 0
 	for i < iterations {
@@ -331,6 +346,19 @@ func contraVerse(factor float64) {
 		}
 		deta = append(deta, plotter.XY{X: float64(i), Y: math.Log10(a)})
 
+		pa := permanent(set.Weights[0].X, QuantumWidth)
+		if cmplx.IsInf(pa) {
+			break
+		}
+		aa := cmplx.Abs(da)
+		if aa < 0 {
+			aa = -aa
+		}
+		if math.IsInf(aa, 0) {
+			break
+		}
+		permanentA = append(permanentA, plotter.XY{X: float64(i), Y: math.Log10(aa)})
+
 		/*bb := make([]float64, len(set.Weights[1].X))
 		for key, value := range set.Weights[1].X {
 			bb[key] = cmplx.Abs(value)
@@ -351,6 +379,19 @@ func contraVerse(factor float64) {
 			break
 		}
 		detb = append(detb, plotter.XY{X: float64(i), Y: math.Log10(b)})
+
+		pb := permanent(set.Weights[1].X, QuantumWidth)
+		if cmplx.IsInf(pb) {
+			break
+		}
+		bb := cmplx.Abs(pb)
+		if bb < 0 {
+			bb = -bb
+		}
+		if math.IsInf(bb, 0) {
+			break
+		}
+		permanentB = append(permanentB, plotter.XY{X: float64(i), Y: math.Log10(bb)})
 
 		points = append(points, plotter.XY{X: float64(i), Y: cmplx.Abs(total)})
 		fmt.Println(i, cmplx.Abs(total), a, b)
@@ -405,12 +446,42 @@ func contraVerse(factor float64) {
 		panic(err)
 	}
 
+	p = plot.New()
+
+	p.Title.Text = "epochs vs permanent"
+	p.X.Label.Text = "epochs"
+	p.Y.Label.Text = "permanent"
+
+	scatter, err = plotter.NewScatter(permanentA)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	scatter.GlyphStyle.Color = color.RGBA{0xFF, 0, 0, 255}
+	p.Add(scatter)
+
+	scatter, err = plotter.NewScatter(permanentB)
+	if err != nil {
+		panic(err)
+	}
+	scatter.GlyphStyle.Radius = vg.Length(1)
+	scatter.GlyphStyle.Shape = draw.CircleGlyph{}
+	scatter.GlyphStyle.Color = color.RGBA{0, 0, 0xFF, 255}
+	p.Add(scatter)
+
+	err = p.Save(8*vg.Inch, 8*vg.Inch, "permanent.png")
+	if err != nil {
+		panic(err)
+	}
+
+	p = plot.New()
+
 	aa := make(plotter.Values, 0, 1024)
 	for _, value := range set.Weights[0].X {
 		aa = append(aa, cmplx.Abs(value))
 	}
 
-	p = plot.New()
 	p.Title.Text = "a matrix"
 	histogram, err := plotter.NewHist(aa, 256)
 	if err != nil {
